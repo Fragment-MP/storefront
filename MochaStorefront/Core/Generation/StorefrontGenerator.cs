@@ -61,7 +61,7 @@ public class StorefrontGenerator
                     continue;
                 }
 
-                foreach (var item in data.Value.Take(6))
+                foreach (var item in data.Value)
                 {
                     if (seenItems.Contains(item.ID))
                         continue;
@@ -79,6 +79,40 @@ public class StorefrontGenerator
             }
 
             Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Generated {count} featured items for the storefront");
+        }
+    }
+
+    public static void GenerateUnknownStorefront(Storefront storefront, string storefrontName)
+    {
+        lock (_lock)
+        {
+            Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Generating {storefrontName} storefront");
+            var seenItems = new HashSet<string>();
+            int count = 0;
+
+            foreach (var data in Constants.Storefront)
+            {
+                if (data.Key != storefrontName)
+                    continue;
+
+                foreach (var item in data.Value)
+                {
+                    if (seenItems.Contains(item.ID))
+                        continue;
+
+                    var backendValue = BackendResolver.DetermineItemBackendValue(item);
+                    var templateId = $"{backendValue}:{item.ID}";
+
+                    Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Created {storefrontName} item: {item.Name} (ID: {item.ID}, Price: {item.Price})");
+                    var entry = StorefrontEntry.CreateShopEntry(item, storefrontName, ShopConfiguration.CurrentVersion >= 14);
+
+                    storefront.CatalogEntries.Add(entry);
+                    count++;
+                    seenItems.Add(item.ID);
+                }
+            }
+
+            Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss}] Generated {count} {storefrontName} items for the storefront");
         }
     }
 }
