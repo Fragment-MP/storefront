@@ -33,6 +33,7 @@ var dailySection = StorefrontService.CreateSection("BRDailyStorefront");
 var weeklySection = StorefrontService.CreateSection("BRWeeklyStorefront");
 
 StorefrontGenerator.GenerateDailyStorefront(dailySection);
+StorefrontGenerator.GenerateFeaturedStorefront(weeklySection);
 
 var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
 var filename = $"scraped-data-{formattedDate}.json";
