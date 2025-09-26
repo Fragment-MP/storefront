@@ -37,4 +37,4 @@ StorefrontGenerator.GenerateFeaturedStorefront(weeklySection);
 
 var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
 var filename = $"scraped-data-{formattedDate}.json";
-await Utils.SaveJsonAsync(filename, result);
+await Utils.SaveJsonAsync(filename, StorefrontService.GetAllSections());

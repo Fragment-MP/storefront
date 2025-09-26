@@ -11,3 +11,4 @@ riderModule.iml
 .vs/MochaStorefront/v18/.suo
 .vs/MochaStorefront/v18/DocumentLayout.backup.json
 .vs/MochaStorefront/v18/DocumentLayout.json
+*.vsidx
