@@ -1,5 +1,6 @@
 ﻿using MochaStorefront;
 using MochaStorefront.Core;
+using MochaStorefront.Core.Generation;
 using MochaStorefront.Core.Models;
 
 var knownItems = await Utils.LoadItemsAsync("https://fortnite-api.com/v2/cosmetics/br?responseFlags=4");
@@ -30,6 +31,8 @@ Constants.Storefront = result;
 
 var dailySection = StorefrontService.CreateSection("BRDailyStorefront");
 var weeklySection = StorefrontService.CreateSection("BRWeeklyStorefront");
+
+StorefrontGenerator.GenerateDailyStorefront(dailySection);
 
 var formattedDate = DateTime.Now.ToString("yyyy-MM-dd");
 var filename = $"scraped-data-{formattedDate}.json";
