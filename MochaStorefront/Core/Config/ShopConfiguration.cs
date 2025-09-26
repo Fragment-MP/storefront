@@ -8,6 +8,9 @@ namespace MochaStorefront.Core.Config
 {
     public class ShopConfiguration
     {
+        public static readonly DateTime DefaultStartDate = new DateTime(2021, 9, 13, 0, 0, 0, DateTimeKind.Utc);
+        public static readonly DateTime DefaultStopDate = new DateTime(2021, 12, 4, 0, 0, 0, DateTimeKind.Utc);
+
         public static readonly HashSet<string> UnsupportedBackendValues = new()
         {
             "AthenaEmoji",

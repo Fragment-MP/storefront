@@ -6,10 +6,7 @@ namespace MochaStorefront.Core;
 
 public static class ScraperService
 {
-    private static readonly HttpClient _httpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
 
     static ScraperService()
     {
@@ -19,288 +16,223 @@ public static class ScraperService
 
     public static async Task<Dictionary<string, List<Item>>> GetStorefrontAsync(string url, Dictionary<string, KnownItem> knownItems)
     {
-        try
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+
+        var html = await response.Content.ReadAsStringAsync();
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        var shopData = new Dictionary<string, List<Item>>();
+        var seenItems = new HashSet<string>();
+        var position = 0;
+
+        GenerateShopData(doc, shopData, knownItems, seenItems, ref position);
+
+        foreach (var section in shopData.Keys.ToList())
+            shopData[section] = shopData[section].OrderBy(item => item.Position).ToList();
+
+        return shopData;
+    }
+
+    private static void GenerateShopData(HtmlDocument doc, Dictionary<string, List<Item>> shopData,
+        Dictionary<string, KnownItem> knownItems, HashSet<string> seen, ref int position)
+    {
+        var sections = doc.DocumentNode.SelectNodes("//h2[contains(@class, 'shop-section-title')]");
+
+        if (sections != null)
         {
-            var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            var html = await response.Content.ReadAsStringAsync();
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            var shopData = new Dictionary<string, List<Item>>();
-            var seenItems = new HashSet<string>();
-            var position = 0;
-
-            var sectionTitleElements = doc.DocumentNode.SelectNodes("//h2[contains(@class, 'shop-section-title')]");
-            
-            if (sectionTitleElements != null)
+            foreach (var sectionTitle in sections)
             {
-                foreach (var titleElement in sectionTitleElements)
-                {
-                    var sectionName = ParseSectionTitle(titleElement.InnerText);
-                    
-                    var itemsContainer = titleElement.SelectSingleNode("following-sibling::div[contains(@class, 'items-row')][1]");
-                    
-                    if (itemsContainer != null)
-                    {
-                        if (!shopData.ContainsKey(sectionName))
-                        {
-                            shopData[sectionName] = new List<Item>();
-                        }
+                var category = ParseSectionTitle(sectionTitle.InnerText);
+                var itemsContainer = sectionTitle.SelectSingleNode("following-sibling::div[1]");
 
-                        var itemLinks = itemsContainer.SelectNodes(".//a[contains(@class, 'item-display')]");
-                        if (itemLinks != null)
-                        {
-                            foreach (var itemLink in itemLinks)
-                            {
-                                var item = ExtractItem(itemLink, sectionName, knownItems, seenItems, ref position);
-                                if (item != null)
-                                {
-                                    shopData[sectionName].Add(item);
-                                }
-                            }
-                        }
-                    }
+                if (itemsContainer == null) continue;
+
+                shopData.TryAdd(category, new List<Item>());
+
+                var itemElements = itemsContainer.SelectNodes(".//a[contains(@class, 'item-display')]");
+                if (itemElements == null) continue;
+
+                foreach (var itemElement in itemElements)
+                {
+                    var item = GenerateItem(itemElement, category, knownItems, seen, ref position);
+                    if (item != null) shopData[category].Add(item);
                 }
             }
-
-            if (shopData.Count == 0)
-            {
-                var currentSection = "Featured";
-                shopData[currentSection] = new List<Item>();
-                
-                var allItemLinks = doc.DocumentNode.SelectNodes("//a[contains(@class, 'item-display')]");
-                if (allItemLinks != null)
-                {
-                    foreach (var itemLink in allItemLinks)
-                    {
-                        var item = ExtractItem(itemLink, currentSection, knownItems, seenItems, ref position);
-                        if (item != null)
-                        {
-                            shopData[currentSection].Add(item);
-                        }
-                    }
-                }
-            }
-
-            foreach (var section in shopData.Keys.ToList())
-            {
-                shopData[section] = shopData[section].OrderBy(item => item.Position).ToList();
-            }
-
-            return shopData;
         }
-        catch (Exception ex)
+
+        if (shopData.Count == 0) GenerateFallbackItems(doc, shopData, knownItems, seen, ref position);
+    }
+
+    private static void GenerateFallbackItems(HtmlDocument doc, Dictionary<string, List<Item>> shopData,
+        Dictionary<string, KnownItem> knownItems, HashSet<string> seen, ref int position)
+    {
+        var currentSection = "Featured";
+        shopData[currentSection] = new List<Item>();
+
+        var allItemLinks = doc.DocumentNode.SelectNodes("//a[contains(@class, 'item-display')]");
+        if (allItemLinks == null) return;
+
+        foreach (var itemLink in allItemLinks)
         {
-            throw new Exception($"Failed to scrape storefront: {ex.Message}", ex);
+            var item = GenerateItem(itemLink, currentSection, knownItems, seen, ref position);
+            if (item != null) shopData[currentSection].Add(item);
         }
     }
 
-    private static string ParseSectionTitle(string raw)
+    private static Item? GenerateItem(HtmlNode itemElement, string section, Dictionary<string, KnownItem> knownItems, HashSet<string> seen, ref int position)
     {
-        var section = raw.Trim();
-        section = section.Replace(" Items", "").Replace(" ITEMS", "");
-        return string.IsNullOrEmpty(section) ? "Featured" : section;
-    }
-
-    private static Item? ExtractItem(HtmlNode itemElement, string section, Dictionary<string, KnownItem> knownItems, HashSet<string> seen, ref int position)
-    {
-        var href = itemElement.GetAttributeValue("href", "");
-        if (string.IsNullOrEmpty(href) || !href.StartsWith("/"))
-            return null;
-
-        var parts = href.Trim('/').Split('/');
-        if (parts.Length < 2)
-            return null;
-
-        var itemType = parts[0];
         var nameElement = itemElement.SelectSingleNode(".//h4[contains(@class, 'item-name')]//span");
-        var name = nameElement?.InnerText?.Trim() ?? "";
+        var rawName = nameElement?.InnerText?.Trim() ?? "";
 
-        if (string.IsNullOrEmpty(name) || name == "Unknown Item")
-            return null;
+        if (string.IsNullOrEmpty(rawName) || rawName == "Unknown Item") return null;
 
+        var isBundle = rawName.Contains("(Bundle)");
+        var name = isBundle ? rawName.Replace("(Bundle)", "").Trim() : rawName;
         var itemKey = $"{section}-{name}";
-        if (seen.Contains(itemKey) && !name.Contains("Battle Pass"))
-            return null;
-        
+
+        if (seen.Contains(itemKey) && !name.Contains("Battle Pass")) return null;
         seen.Add(itemKey);
         position++;
 
         var price = ExtractPrice(itemElement);
-        var backendType = "";
-        var rarity = "";
+        var href = itemElement.GetAttributeValue("href", "");
+        var parts = href.Trim('/').Split('/');
+        var itemType = parts.Length >= 2 ? parts[0] : "";
+
+        if (price <= 0) price = CalculateFallbackPrice(itemElement, name, knownItems);
+
+        var item = BuildItem(itemType, name, rawName, isBundle, section, price, position, knownItems);
+        return item ?? (name == "Battle Pass Tiers" ? CreateBattlePassItem(itemType, name, section, price, position) : null);
+    }
+
+    private static int CalculateFallbackPrice(HtmlNode itemElement, string name, Dictionary<string, KnownItem> knownItems)
+    {
+        if (!knownItems.TryGetValue(name, out var knownItem)) return 0;
+
+        var backendType = knownItem.Item?.BackendValue ?? "";
+        if (string.IsNullOrEmpty(backendType)) return 0;
 
         var classAttribute = itemElement.GetAttributeValue("class", "");
         var rarityMatch = Regex.Match(classAttribute, @"rarity-(\w+)");
-        if (rarityMatch.Success)
-        {
-            rarity = rarityMatch.Groups[1].Value;
-        }
+        return rarityMatch.Success ? GetPriceByRarity(backendType, rarityMatch.Groups[1].Value) : 0;
+    }
 
-        if (price <= 0 && knownItems.TryGetValue(name, out var knownItem))
-        {
-            backendType = knownItem.Item?.BackendValue ?? "";
-            
-            if (price <= 0 && !string.IsNullOrEmpty(backendType) && !string.IsNullOrEmpty(rarity))
-            {
-                // Fall back if the price is 0, Ehem speaking to you codename elf
-                price = GetPriceByRarity(backendType, rarity);
-            }
-        }
+    private static Item? BuildItem(string itemType, string name, string fullName, bool isBundle, string section, int price, int position, Dictionary<string, KnownItem> knownItems)
+    {
+        if (!knownItems.TryGetValue(name, out var knownItemData)) return null;
 
-        if (price <= 0)
-            price = 0;
-
-        var item = new Item
+        return new Item
         {
             Type = itemType,
-            ID = "",
+            ID = knownItemData.ID ?? "",
             Name = name,
+            FullName = fullName,
+            IsBundle = isBundle,
             Price = price,
             Position = position,
-            Category = "",
-            ItemDetail = new ItemDetails(),
-            Images = new ItemImages()
+            Category = knownItemData.Set?.Value ?? "",
+            Set = knownItemData.Set != null ? new ItemSet
+            {
+                Value = knownItemData.Set.Value ?? "",
+                Text = knownItemData.Set.Text ?? "",
+                BackendValue = knownItemData.Set.BackendValue ?? ""
+            } : null,
+            ItemDetail = knownItemData.Item != null ? new ItemDetails
+            {
+                Value = knownItemData.Item.Value ?? "",
+                Text = knownItemData.Item.Text ?? "",
+                BackendValue = knownItemData.Item.BackendValue ?? ""
+            } : new ItemDetails(),
+            Images = knownItemData.Images != null ? new ItemImages
+            {
+                Icon = knownItemData.Images.Icon ?? "",
+                SmallIcon = knownItemData.Images.SmallIcon ?? ""
+            } : new ItemImages()
         };
+    }
 
-        if (knownItems.TryGetValue(name, out var knownItemData))
-        {
-            item.ID = knownItemData.ID;
-            item.Category = knownItemData.Set?.Value ?? "";
-            
-            if (knownItemData.Set != null)
-            {
-                item.Set = new ItemSet
-                {
-                    Value = knownItemData.Set.Value ?? "",
-                    Text = knownItemData.Set.Text ?? "",
-                    BackendValue = knownItemData.Set.BackendValue ?? ""
-                };
-            }
-            
-            if (knownItemData.Item != null)
-            {
-                item.ItemDetail = new ItemDetails
-                {
-                    Value = knownItemData.Item.Value ?? "",
-                    Text = knownItemData.Item.Text ?? "",
-                    BackendValue = knownItemData.Item.BackendValue ?? ""
-                };
-            }
-            
-            if (knownItemData.Images != null)
-            {
-                item.Images = new ItemImages
-                {
-                    Icon = knownItemData.Images.Icon ?? "",
-                    SmallIcon = knownItemData.Images.SmallIcon ?? ""
-                };
-            }
-        }
-        else if (name == "Battle Pass Tiers")
-        {
-            item.ID = "AthenaBattlePassTier";
-        }
-        else
-        {
-            return null;
-        }
+    private static Item CreateBattlePassItem(string itemType, string name, string section, int price, int position) => new()
+    {
+        Type = itemType,
+        ID = "AthenaBattlePassTier",
+        Name = name,
+        FullName = name,
+        IsBundle = false,
+        Price = price,
+        Position = position,
+        Category = section,
+        ItemDetail = new ItemDetails(),
+        Images = new ItemImages()
+    };
 
-        return item;
+    private static string ParseSectionTitle(string raw)
+    {
+        var section = raw.Trim().Replace(" Items", "").Replace(" ITEMS", "");
+        return string.IsNullOrEmpty(section) ? "Featured" : section;
     }
 
     private static int ExtractPrice(HtmlNode element)
     {
         var priceElement = element.SelectSingleNode(".//p[contains(@class, 'item-price')]");
-        if (priceElement == null)
-            return 0;
-
-        var priceText = priceElement.InnerText?.Trim() ?? "";
-        if (string.IsNullOrEmpty(priceText))
-            return 0;
-
-        var regex = new Regex(@"[0-9,]+");
-        var match = regex.Match(priceText);
-        
-        if (!match.Success)
-            return 0;
-
-        var priceDigits = match.Value.Replace(",", "");
-        
-        if (int.TryParse(priceDigits, out var price))
-            return price;
-
-        return 0;
+        var priceText = priceElement?.InnerText?.Trim() ?? "";
+        var match = Regex.Match(priceText, @"[0-9,]+");
+        return match.Success && int.TryParse(match.Value.Replace(",", ""), out var price) ? price : 0;
     }
 
     private static int GetPriceByRarity(string backendType, string rarity)
     {
-        switch (backendType)
+        var lowerRarity = rarity.ToLower();
+        return backendType switch
         {
-            case "AthenaCharacter":
-                switch (rarity.ToLower())
-                {
-                    case "uncommon": return 800;
-                    case "rare": return 1200;
-                    case "epic": return 1500;
-                    case "legendary": return 2000;
-                    default: return 0;
-                }
-
-            case "AthenaBackpack": 
-                return 500; 
-
-            case "AthenaPickaxe":
-                switch (rarity.ToLower())
-                {
-                    case "uncommon": return 500;
-                    case "rare": return 800;
-                    case "epic": return 1200;
-                    default: return 0;
-                }
-
-            case "AthenaGlider":
-                switch (rarity.ToLower())
-                {
-                    case "uncommon": return 500;
-                    case "rare": return 800;
-                    case "epic": return 1200;
-                    case "legendary": return 1500;
-                    default: return 0;
-                }
-
-            case "AthenaItemWrap": 
-                switch (rarity.ToLower())
-                {
-                    case "uncommon": return 300;
-                    case "rare": return 500;
-                    case "epic": return 500; 
-                    default: return 0;
-                }
-
-            case "AthenaSkyDiveContrail": 
-                switch (rarity.ToLower())
-                {
-                    case "uncommon": return 200;
-                    case "rare": return 500;
-                    case "epic": return 800;
-                    default: return 0;
-                }
-
-            case "AthenaDance":
-                switch (rarity.ToLower())
-                {
-                    case "uncommon": return 200;
-                    case "rare": return 500;
-                    case "epic": return 800;
-                    case "legendary": return 1000; 
-                    default: return 0;
-                }
-
-            default:
-                return 0;
-        }
+            "AthenaCharacter" => lowerRarity switch
+            {
+                "uncommon" => 800,
+                "rare" => 1200,
+                "epic" => 1500,
+                "legendary" => 2000,
+                _ => 0
+            },
+            "AthenaBackpack" => 500,
+            "AthenaPickaxe" => lowerRarity switch
+            {
+                "uncommon" => 500,
+                "rare" => 800,
+                "epic" => 1200,
+                _ => 0
+            },
+            "AthenaGlider" => lowerRarity switch
+            {
+                "uncommon" => 500,
+                "rare" => 800,
+                "epic" => 1200,
+                "legendary" => 1500,
+                _ => 0
+            },
+            "AthenaItemWrap" => lowerRarity switch
+            {
+                "uncommon" => 300,
+                "rare" => 500,
+                "epic" => 500,
+                _ => 0
+            },
+            "AthenaSkyDiveContrail" => lowerRarity switch
+            {
+                "uncommon" => 200,
+                "rare" => 500,
+                "epic" => 800,
+                _ => 0
+            },
+            "AthenaDance" => lowerRarity switch
+            {
+                "uncommon" => 200,
+                "rare" => 500,
+                "epic" => 800,
+                "legendary" => 1000,
+                _ => 0
+            },
+            _ => 0
+        };
     }
 }

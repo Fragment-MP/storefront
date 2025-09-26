@@ -12,6 +12,10 @@ public class Item
 
     [JsonPropertyName("id")]
     public string ID { get; set; } = string.Empty;
+    [JsonPropertyName("full_name")]
+    public string FullName { get; set; } = string.Empty;
+    [JsonPropertyName("isBundle")]
+    public bool IsBundle { get; set; }
 
     [JsonPropertyName("price")]
     public int Price { get; set; }

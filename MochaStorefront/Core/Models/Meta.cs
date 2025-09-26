@@ -4,24 +4,24 @@ namespace MochaStorefront.Core.Models;
 
 public class Meta
 {
-    [JsonPropertyName("templateId")]
+    [JsonPropertyName("TemplateId")]
     public string? TemplateId { get; set; }
 
-    [JsonPropertyName("displayAssetPath")]
+    [JsonPropertyName("DisplayAssetPath")]
     public string? DisplayAssetPath { get; set; }
 
-    [JsonPropertyName("newDisplayAssetPath")]
+    [JsonPropertyName("NewDisplayAssetPath")]
     public string? NewDisplayAssetPath { get; set; }
 
-    [JsonPropertyName("layoutId")]
+    [JsonPropertyName("LayoutId")]
     public string? LayoutId { get; set; }
 
-    [JsonPropertyName("tileSize")]
+    [JsonPropertyName("TileSize")]
     public string? TileSize { get; set; }
 
-    [JsonPropertyName("analyticOfferGroupId")]
+    [JsonPropertyName("AnalyticOfferGroupId")]
     public string? AnalyticOfferGroupId { get; set; }
 
-    [JsonPropertyName("sectionId")]
+    [JsonPropertyName("SectionId")]
     public string? SectionId { get; set; }
 }

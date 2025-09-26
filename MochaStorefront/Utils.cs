@@ -95,4 +95,13 @@ public static class Utils
         Console.WriteLine(message);
         Console.ForegroundColor = originalColor;
     }
+
+    public static void LogWithTimestamp(ConsoleColor color, string message, params object[] args)
+    {
+        var formattedMessage = args.Length > 0 ? string.Format(message, args) : message;
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        Console.ForegroundColor = color;
+        Console.WriteLine($"[{timestamp}] {formattedMessage}");
+        Console.ResetColor();
+    }
 }
