@@ -51,8 +51,6 @@ namespace MochaStorefront.Core
                     }
                 }
             }
-
-            await Task.WhenAll(tasks);
         }
 
         public async Task CreateCatalogAsync(Catalog catalog)
