@@ -52,21 +52,7 @@ namespace MochaStorefront.Core
                 }
             }
 
-            var tasks = new List<Task>
-            {
-                PreloadAllTablesAsync()
-            };
-
             await Task.WhenAll(tasks);
-        }
-
-        public async Task PreloadAllTablesAsync()
-        {
-            await RepositoryManager.PreloadTablesAsync(
-                typeof(Catalog),
-                typeof(ShopSections),
-                typeof(PastShops)
-            );
         }
 
         public async Task CreateCatalogAsync(Catalog catalog)
