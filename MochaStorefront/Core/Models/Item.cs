@@ -20,6 +20,9 @@ public class Item
     [JsonPropertyName("price")]
     public int Price { get; set; }
 
+    [JsonPropertyName("backpack")]
+    public KnownItem Backpack { get; set; }
+
     [JsonPropertyName("category")]
     public string Category { get; set; } = string.Empty;
 

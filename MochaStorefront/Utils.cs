@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using MochaStorefront.Core.Models;
 
 namespace MochaStorefront;
@@ -15,9 +15,9 @@ public static class Utils
         try
         {
             LogWithTimestamp("Fetching items from API...", ConsoleColor.Yellow);
-            
+
             var response = await _httpClient.GetAsync(apiUrl);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 LogWithTimestamp($"API request failed with status: {response.StatusCode}", ConsoleColor.Red);
@@ -35,9 +35,9 @@ public static class Utils
                 LogWithTimestamp("Failed to parse API response", ConsoleColor.Red);
                 return null;
             }
-            
+
             var itemMap = new Dictionary<string, KnownItem>();
-            
+
             foreach (var item in apiResponse.Data)
             {
                 if (item.ShopHistory != null && item.ShopHistory.Any())
@@ -49,9 +49,28 @@ public static class Utils
                             ID = item.ID,
                             Set = item.Set,
                             Item = item.Type,
-                            Images = item.Images
+                            Images = item.Images,
+                            ItemPreviewHeroPath = item.ItemPreviewHeroPath
                         };
                     }
+                }
+            }
+
+            foreach (var item in itemMap.Values)
+            {
+                if (item.Item == null || !item.Item.BackendValue.Contains("AthenaBackpack"))
+                    continue;
+                if (string.IsNullOrEmpty(item.ItemPreviewHeroPath))
+                    continue;
+
+                var cosmeticId = item.ItemPreviewHeroPath.Split('/').LastOrDefault();
+                if (string.IsNullOrEmpty(cosmeticId))
+                    continue;
+
+                if (itemMap.TryGetValue(cosmeticId, out var cosmetic))
+                {
+                    cosmetic.Backpack = item;
+                    LogWithTimestamp($"Linked backpack {item.ID} to item {cosmetic.ID}", ConsoleColor.Cyan);
                 }
             }
 

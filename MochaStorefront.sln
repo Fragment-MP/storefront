@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.0.11018.127 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MochaStorefront", "MochaStorefront\MochaStorefront.csproj", "{73E26ACC-9834-4B09-B03D-FC2786FE8188}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FragmentStorefront", "MochaStorefront\FragmentStorefront.csproj", "{73E26ACC-9834-4B09-B03D-FC2786FE8188}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FragmentBackend.Database", "..\Fragment\FragmentBackend.Database\FragmentBackend.Database.csproj", "{C4FCB2A1-6CFF-60C2-30C2-D9EA3EB4C25F}"
 EndProject

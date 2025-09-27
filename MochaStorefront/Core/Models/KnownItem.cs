@@ -12,7 +12,11 @@ public class KnownItem
 
     [JsonPropertyName("item")]
     public ItemDetails Item { get; set; } = new ItemDetails();
+    [JsonPropertyName("backpack")]
+    public KnownItem Backpack { get; set; }
 
     [JsonPropertyName("images")]
     public ItemImages Images { get; set; } = new ItemImages();
+    [JsonPropertyName("itemPreviewHeroPath")]
+    public string ItemPreviewHeroPath { get; set; } = string.Empty;
 }

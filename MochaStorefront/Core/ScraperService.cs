@@ -45,7 +45,7 @@ public static class ScraperService
             foreach (var sectionTitle in sections)
             {
                 var category = ParseSectionTitle(sectionTitle.InnerText);
-                var itemsContainer = sectionTitle.SelectSingleNode("following-sibling::div[1]");
+                var itemsContainer = GetItemsContainer(sectionTitle);
 
                 if (itemsContainer == null) continue;
 
@@ -62,7 +62,23 @@ public static class ScraperService
             }
         }
 
-        if (shopData.Count == 0) GenerateFallbackItems(doc, shopData, knownItems, seen, ref position);
+        if (shopData.Count == 0 || shopData.Values.All(list => list.Count == 0))
+            GenerateFallbackItems(doc, shopData, knownItems, seen, ref position);
+    }
+
+    private static HtmlNode GetItemsContainer(HtmlNode sectionTitle)
+    {
+        var nextSibling = sectionTitle.NextSibling;
+        while (nextSibling != null)
+        {
+            if (nextSibling.NodeType == HtmlNodeType.Element &&
+                nextSibling.GetAttributeValue("class", "").Contains("items-row"))
+            {
+                return nextSibling;
+            }
+            nextSibling = nextSibling.NextSibling;
+        }
+        return null;
     }
 
     private static void GenerateFallbackItems(HtmlDocument doc, Dictionary<string, List<Item>> shopData,
@@ -88,23 +104,50 @@ public static class ScraperService
 
         if (string.IsNullOrEmpty(rawName) || rawName == "Unknown Item") return null;
 
+        rawName = DecodeHtmlEntities(rawName);
+
         var isBundle = rawName.Contains("(Bundle)");
         var name = isBundle ? rawName.Replace("(Bundle)", "").Trim() : rawName;
-        var itemKey = $"{section}-{name}";
 
-        if (seen.Contains(itemKey) && !name.Contains("Battle Pass")) return null;
+        var href = itemElement.GetAttributeValue("href", "");
+        var parts = href.Trim('/').Split('/');
+        var itemType = parts.Length >= 2 ? parts[0] : "unknown";
+
+        var itemKey = $"{section}-{rawName}-{href}";
+
+        if (seen.Contains(itemKey)) return null;
+
         seen.Add(itemKey);
         position++;
 
         var price = ExtractPrice(itemElement);
-        var href = itemElement.GetAttributeValue("href", "");
-        var parts = href.Trim('/').Split('/');
-        var itemType = parts.Length >= 2 ? parts[0] : "";
 
         if (price <= 0) price = CalculateFallbackPrice(itemElement, name, knownItems);
 
         var item = BuildItem(itemType, name, rawName, isBundle, section, price, position, knownItems);
+
+        if (item == null)
+        {
+            if (isBundle && knownItems.TryGetValue($"{name} (Bundle)", out var bundleItem))
+            {
+                item = BuildItem(itemType, $"{name} (Bundle)", rawName, isBundle, section, price, position, knownItems);
+            }
+            else if (!isBundle && knownItems.TryGetValue(rawName, out var rawNameItem))
+            {
+                item = BuildItem(itemType, rawName, rawName, isBundle, section, price, position, knownItems);
+            }
+            else
+            {
+                item = CreateFallbackItem(itemType, name, rawName, isBundle, section, price, position, itemElement);
+            }
+        }
+
         return item ?? (name == "Battle Pass Tiers" ? CreateBattlePassItem(itemType, name, section, price, position) : null);
+    }
+
+    private static string DecodeHtmlEntities(string text)
+    {
+        return System.Net.WebUtility.HtmlDecode(text);
     }
 
     private static int CalculateFallbackPrice(HtmlNode itemElement, string name, Dictionary<string, KnownItem> knownItems)
@@ -132,6 +175,7 @@ public static class ScraperService
             IsBundle = isBundle,
             Price = price,
             Position = position,
+            Backpack = knownItemData.Backpack,
             Category = knownItemData.Set?.Value ?? "",
             Set = knownItemData.Set != null ? new ItemSet
             {
@@ -150,6 +194,32 @@ public static class ScraperService
                 Icon = knownItemData.Images.Icon ?? "",
                 SmallIcon = knownItemData.Images.SmallIcon ?? ""
             } : new ItemImages()
+        };
+    }
+
+    private static Item CreateFallbackItem(string itemType, string name, string fullName, bool isBundle, string section, int price, int position, HtmlNode itemElement)
+    {
+        var classAttribute = itemElement.GetAttributeValue("class", "");
+        var rarityMatch = Regex.Match(classAttribute, @"rarity-(\w+)");
+        var rarity = rarityMatch.Success ? rarityMatch.Groups[1].Value : "common";
+
+        return new Item
+        {
+            Type = itemType,
+            ID = $"Fallback_{name.Replace(" ", "")}",
+            Name = name,
+            FullName = fullName,
+            IsBundle = isBundle,
+            Price = price,
+            Position = position,
+            Category = section,
+            ItemDetail = new ItemDetails
+            {
+                Value = name,
+                Text = name,
+                BackendValue = itemType
+            },
+            Images = new ItemImages()
         };
     }
 

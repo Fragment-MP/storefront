@@ -116,7 +116,7 @@ namespace MochaStorefront.Core
 
             Utils.LogWithTimestamp(ConsoleColor.Cyan, $"Generating storefront for {formattedDate}");
 
-            var items = await Utils.LoadItemsAsync("https://fortnite-api.com/v2/cosmetics/br?responseFlags=4");
+            var items = await Utils.LoadItemsAsync("https://fortnite-api.com/v2/cosmetics/br?responseFlags=5");
             if (items == null)
             {
                 Utils.LogWithTimestamp(ConsoleColor.Red, $"Failed to load items for {formattedDate}");
@@ -155,6 +155,10 @@ namespace MochaStorefront.Core
             foreach (var section in result)
             {
                 Console.WriteLine($"{section.Key} ({section.Value.Count} items)");
+                foreach (var test in section.Value)
+                {
+                    Console.WriteLine($" - {test.Name} ({test.Type})");
+                }
 
                 Task task = section.Key switch
                 {
@@ -177,6 +181,9 @@ namespace MochaStorefront.Core
             await Task.WhenAll(tasks);
 
             Utils.LogWithTimestamp(ConsoleColor.Green, $"Finished generating storefront for {formattedDate}");
+            var filename = $"scraped-data-{formattedDate}.json";
+            await Utils.SaveJsonAsync(filename, StorefrontService.GetAllSections());
+
             await _database.DeleteAllFutureShopsAsync();
         }
     }

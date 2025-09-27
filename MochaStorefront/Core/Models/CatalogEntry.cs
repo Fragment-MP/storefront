@@ -54,7 +54,7 @@ public class CatalogEntry
     [JsonPropertyName("catalogGroupPriority")]
     public int CatalogGroupPriority { get; set; }
 
-    [JsonPropertyName("filterWeight")] public int FilterWeight { get; set; }
+    [JsonPropertyName("filterWeight")] public double FilterWeight { get; set; }
 
     [JsonPropertyName("matchFilter")] public string? MatchFilter { get; set; }
 

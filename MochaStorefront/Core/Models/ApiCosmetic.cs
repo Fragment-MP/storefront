@@ -63,6 +63,8 @@ public class ApiCosmetic
 
     [JsonPropertyName("shopHistory")]
     public List<string>? ShopHistory { get; set; }
+    [JsonPropertyName("itemPreviewHeroPath")]
+    public string? ItemPreviewHeroPath { get; set; }
 }
 
 public class SeriesInfo
