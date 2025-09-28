@@ -37,8 +37,7 @@ public class StorefrontGenerator
             {
                 if (data.Key != "Daily") continue;
 
-                var items = data.Value.Where(IsValidItem).GroupBy(item => item.ID).Select(group => group.First()).Take(6).ToList();
-
+                var items = data.Value.Where(IsValidItem).GroupBy(item => item.ID).Select(group => group.First()).ToList();
                 foreach (var item in items)
                 {
                     var entry = CreateShopEntry(item, "Daily", year, month, day, "", analyticOfferGroupId);
@@ -134,6 +133,8 @@ public class StorefrontGenerator
             storefront.CatalogEntries.RemoveAll(entry => entry.Meta.SectionId == storefrontName);
 
             var categories = new HashSet<string>();
+            var test = new HashSet<string>();
+
             var itemsList = new List<Item>();
 
             foreach (var data in Constants.Storefront)
@@ -165,6 +166,9 @@ public class StorefrontGenerator
 
                         if (!string.IsNullOrEmpty(item.Category))
                             categories.Add(item.Category);
+
+                        if (!string.IsNullOrEmpty(storefrontName))
+                            test.Add(storefrontName);
                     }
                 }
             }
@@ -172,7 +176,7 @@ public class StorefrontGenerator
             if (categories.Count > 0)
             {
                 var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
-                var sections = categories.Select(category => new ShopSections
+                var sections = test.Select(category => new ShopSections
                 {
                     CreatedAt = now,
                     Section = category
@@ -386,10 +390,7 @@ public class StorefrontGenerator
 
     private static bool IsValidItem(Item item)
     {
-        if (string.IsNullOrEmpty(item.Name) || string.IsNullOrEmpty(item.ID))
-            return false;
-
-        if (item.Price <= 0 && item.Name != "Heartspan" && item.ID != "MusicPack_LavaChicken")
+        if (string.IsNullOrEmpty(item.ID))
             return false;
 
         return true;

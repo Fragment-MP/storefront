@@ -239,7 +239,12 @@ public static class ScraperService
 
     private static string ParseSectionTitle(string raw)
     {
-        var section = raw.Trim().Replace(" Items", "").Replace(" ITEMS", "");
+        var decoded = System.Net.WebUtility.HtmlDecode(raw);
+
+        var section = decoded.Trim()
+            .Replace(" Items", "", StringComparison.OrdinalIgnoreCase)
+            .Replace(" ITEMS", "", StringComparison.OrdinalIgnoreCase);
+
         return string.IsNullOrEmpty(section) ? "Featured" : section;
     }
 
