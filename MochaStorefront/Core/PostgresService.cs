@@ -45,7 +45,7 @@ namespace MochaStorefront.Core
                     if (!_isRepositoryManagerInitialized)
                     {
                         RepositoryManager.Initialize(
-                            "Host=localhost;Port=5432;Database=onedoteleven;Username=postgres;Password=a",
+                            "Host=localhost;Port=5432;Database=fragment;Username=postgres;Password=a",
                             true);
                         _isRepositoryManagerInitialized = true;
                     }
